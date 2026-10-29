@@ -1,3 +1,6 @@
 dist/
 __pycache__/
 .DS_Store
+
+# Local experiment evidence may contain account and host metadata.
+evals/results/

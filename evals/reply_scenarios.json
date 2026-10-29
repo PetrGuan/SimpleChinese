@@ -1,0 +1,58 @@
+[
+  {
+    "id": "ttl-newcomer", "split": "dev", "register": "reply", "kind": "description", "mode": "plain", "audience": "刚接触缓存的前端开发者", "structure": "prose",
+    "prompt": "我刚接触缓存。同事说天气卡片的 TTL 是 90 秒，我不懂 TTL。用户刷新页面后有时还是旧天气，这和它有关系吗？现在只知道卡片会读取缓存，不知道写入和更新的实现。",
+    "protected": ["TTL", "90"],
+    "facts": ["解释 TTL 的含义", "缓存过期时间可能相关，但实现未知不能确定原因", "刷新页面不必然绕过缓存"],
+    "review": ["是否回答问题而不先给教程目录", "是否给新手必要解释", "是否把未知缓存实现当成已知"]
+  },
+  {
+    "id": "index-expert", "split": "reserved", "register": "reply", "kind": "description", "mode": "plain", "audience": "资深数据库工程师", "structure": "prose",
+    "prompt": "我是数据库工程师，熟悉 B-tree 和 EXPLAIN。一个按 created_at 排序取最新 20 条的查询仍在全表扫描，过滤条件是 tenant_id。暂时没拿到执行计划。你会先核对什么？",
+    "protected": ["created_at", "tenant_id", "20"],
+    "facts": ["没有执行计划不能断定根因", "回答核对方向而非声称已找到问题"],
+    "review": ["是否避免解释读者明确熟悉的 B-tree 和 EXPLAIN", "是否给有用的排查优先级"]
+  },
+  {
+    "id": "retry-unknown", "split": "reserved", "register": "reply", "kind": "description", "mode": "plain", "audience": "后端开发者", "structure": "prose",
+    "prompt": "付款接口请求超时了，但我不知道服务端有没有扣款。接口文档没说重复请求是否会去重。现在直接重试安全吗？",
+    "protected": [],
+    "facts": ["不能承诺重试安全", "请求超时不等于服务端未扣款", "需要确认付款状态和接口去重语义"],
+    "review": ["是否直接回答安全性", "是否避免把建议写成事实"]
+  },
+  {
+    "id": "two-options", "split": "reserved", "register": "reply", "kind": "description", "mode": "plain", "audience": "团队负责人", "structure": "free",
+    "prompt": "团队每周手工整理一次日志，一次大约 30 分钟。自动化预计要写两天，还要维护。只有两个人使用，而且流程下个月可能变化。你倾向现在自动化，还是先继续手工？说明理由。",
+    "protected": [],
+    "facts": ["结合低频、低使用量和流程可能变化", "不能把估计时间当保证"],
+    "review": ["是否先给倾向并解释取舍", "是否避免为了两个选项堆大量标题", "有用对比是否保留"]
+  },
+  {
+    "id": "literal-warning", "split": "reserved", "register": "reply", "kind": "description", "mode": "plain", "audience": "系统管理员", "structure": "prose",
+    "prompt": "帮我把确认消息的开场改直接一点，警告和问句不要动：您好，非常感谢您的耐心！警告：清空审计记录后，记录无法恢复。请确认：保留期已经届满，且你有清理权限，是否继续？希望这对您有所帮助。",
+    "protected": ["警告：清空审计记录后，记录无法恢复。", "请确认：保留期已经届满，且你有清理权限，是否继续？"],
+    "facts": ["只编辑消息，不执行清理"],
+    "review": ["是否保留完整风险和确认条件", "是否只删除无信息包装"]
+  },
+  {
+    "id": "load-average", "split": "reserved", "register": "reply", "kind": "description", "mode": "plain", "audience": "第一次值班的开发者", "structure": "prose",
+    "prompt": "第一次值班，机器是 8 核，面板上 load average 显示 6、5、4。我以为这个数字是 CPU 百分比，是这样吗？",
+    "protected": ["8"],
+    "facts": ["load average 不是 CPU 百分比", "单凭三个数不能断定机器正常或过载"],
+    "review": ["是否纠正误解并提供必要解释", "是否避免过度扩展成监控教程"]
+  },
+  {
+    "id": "missing-evidence", "split": "reserved", "register": "reply", "kind": "description", "mode": "plain", "audience": "应用开发者", "structure": "prose",
+    "prompt": "今天登录突然慢了，是数据库坏了吗？我现在只有用户反馈，还没有日志和时间分布。",
+    "protected": [],
+    "facts": ["不能认定数据库损坏", "先收集能区分原因的证据"],
+    "review": ["是否明确证据不足", "是否给有限而有效的下一步"]
+  },
+  {
+    "id": "jargon-boundary", "split": "reserved", "register": "reply", "kind": "description", "mode": "plain", "audience": "系统开发者", "structure": "prose",
+    "prompt": "这句话里的“对齐”和“闭环”都要删吗？原句是：缓冲区按 64 字节对齐，控制器使用闭环控制调整转速。读者是维护这段驱动的同事。",
+    "protected": ["64"],
+    "facts": ["两个词在这里都有具体技术含义", "不能机械替换或删除"],
+    "review": ["是否区分术语和空泛黑话", "是否避免向已知读者补无关定义"]
+  }
+]

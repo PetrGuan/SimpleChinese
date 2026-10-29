@@ -3,8 +3,10 @@
 用简明中文写技术文档和对话回复。默认说白话；需要更明确的句长约束时，对技术文档启用严格模式。
 项目包含一份中文原创规范和一个 Agent Skill，不需要运行服务。
 
-v0.1 提供 42 条编号规则、12 条文档核心指令、6 条回复规则及配套提示。
-目前的 8 组改写是示意案例，真实双模型手动验收尚未完成；没有实测效果数字。
+v0.1.2 候选保留 42 条编号规则和 6 条回复规则，针对评审发现的待办分散和冗余操作解释作了修订。
+交接动作集中呈现，必要标题不按句数硬删；熟练读者不重复解释已知用途，新手需要的限制和解释仍保留。
+普通任务不预读全部参考资料；完整独立提示从技能核心生成，避免入口规则不一致。
+最近一轮生成实验及 Grok 盲评属于 v0.1.1，不能沿用为本次修订成绩。v0.1.2 尚未实测，双生成模型及保留集验收尚未完成，不宣称已证明稳定提升。
 
 ## 安装
 
@@ -75,32 +77,37 @@ v0.1 只支持简体中文技术文档和对话回复，不提供营销模式、
 构建只需要 Python 3.9 或更新版本，使用标准库，无需安装依赖。
 修改规范后运行下面的命令，再一并保留生成的规则目录和技能许可文件。
 不要直接编辑生成的 `references/rule-catalog.md` 或 `skills/simple-chinese/LICENSE.txt`。
+`prompts/system-prompt.md` 的完整版区域也由构建生成；修改对应的 SKILL.md 核心规则。
 
 ```bash
 python3 scripts/build.py
 ```
 
 构建检查条号、技能元数据与长度、文档相对链接，并把完整规则和 MIT 许可打进独立技能包。
-产物为 `dist/simple-chinese-v0.1.zip` 和对应 `.zip.sha256` 摘要文件，归档根目录是 `simple-chinese/`。
+产物为 `dist/simple-chinese-v0.1.2.zip` 和对应 `.zip.sha256` 摘要文件，归档根目录是 `simple-chinese/`。
 解压后的目录可以作为整个技能目录安装；压缩包不包含工作流文件、仓库历史或本地配置。
 构建不执行测试、不调用模型、不访问网络。仓库不配置 GitHub Actions。
 
 ## 验收与后续版本
 
-v0.1 的真实验收由维护者手动运行：用 DeepSeek 和一个 GPT mini 级模型试写 8 个场景，保留未经修改的输出，确认没有丢失事实且表达更直接。
-当前没有执行这些试写，也没有发布基准结果。示意案例不能代替真实输出验收。
+评测方法依据 [SimpleEnglish 源码核查](evals/simpleenglish-research.md) 改进，操作与限制见 [评测协议](evals/README.md)。
+已完成实验见 [公开结果摘要](evals/RESULTS.md)。原始实验记录因包含运行元数据留在本地，不随仓库发布；摘要不等同于可独立复核的完整证据。
+现有示意案例与旧试写留作历史，不当新版证据。新矩阵比较无提示、v0.1、新版和固定短提示，按文体分组并重复采样。
+16 个新场景分为 3 个开发任务和 13 个保留任务；原文保护、格式统计、语义和自然度分别判断。
+原始 CLI 输出、提示、模型设置和哈希用于离线复算。没有盲评前不宣布胜率，没有保留集结果前不宣布普遍效果。
+DeepSeek 与原定双模型验收仍未完成。
+下一轮需验证待办是否集中且完整、熟练读者是否少读无用解释，以及新手是否仍得到必要限制；不靠减少标题或字数判胜，不改历史场景、原始输出或裁判评分。
 英文缩写 PCS 暂定；用于校准字数上限的真实中文技术文档来源尚待确定。
 
 | 版本 | 后续范围 |
 |---|---|
-| v0.2 | 中文检测脚本、8 个文档与 8 个回复场景、两个模型的基准、真实语料校准、本地复算数字 |
+| v0.2 | 在现有运行器、16 场景与复算基础上完成保留集及双模型评测、真实语料校准 |
 | v0.3 | 200 条受控词典、严格词典检测、Claude Code/Codex 插件、会话钩子和输出风格 |
 | v0.4 | App 介绍和销售邮件等营销模式 |
 | 以后 | 社区词条流程、繁体和其他文体 |
 
-v0.2 计划比较无技能、完整技能和短提示，在两个模型上每格重复两次，共 192 次生成。
-机械指标由本地脚本计算，只有自然度交叉盲评使用模型，并人工抽查 10 对。
-预计预算上限约 10 美元，计入生成和评审费用，超过前停止；这只是后续计划，本版本不发起任何收费请求。
+原草案的双模型预算约 10 美元；增加旧版对照或裁判会改变调用量，必须重新确认预算，不能沿用旧的 192 次估计。
+当前运行器使用 Copilot 账户额度，不把额度数换算成美元。只有显式运行 `run` 才发起模型请求。
 未来报告先展示读者能看到的缺陷，不把检测脚本得分当作可读性证明，也不预先声称完整技能胜过短提示。
 
 ## 许可与致谢
@@ -119,4 +126,5 @@ ASD-STE100 是 ASD 的注册商标。本项目不声称符合任何官方标准�
 SimpleChinese is an Agent Skill for clear Simplified Chinese technical writing and conversational replies.
 It includes an original 42-rule Plain Chinese Standard, a concise skill, standalone prompts, and eight illustrative rewrites.
 Plain mode is the default; strict document mode adds length limits. Full controlled-vocabulary enforcement is planned for v0.3.
-Real-model acceptance runs are pending; no benchmark improvement is claimed. MIT licensed; not affiliated with or endorsed by ASD or STEMG.
+The v0.1.2 candidate groups actionable steps, preserves useful navigation, and avoids redundant explanations without removing necessary context. References remain on demand.
+Existing generation and Grok judge results cover v0.1.1, not this revision. The candidate has not been evaluated; human and held-out acceptance remain pending. No general benchmark improvement is claimed. MIT licensed; not affiliated with or endorsed by ASD or STEMG.

@@ -1,0 +1,58 @@
+[
+  {
+    "id": "install-engineer", "split": "dev", "register": "document", "kind": "procedure", "mode": "plain", "audience": "熟悉 Node.js 的工程师", "structure": "steps",
+    "prompt": "给熟悉 Node.js 的同事写本地启动步骤。项目叫 mapdesk，仓库已下载，Node.js 已安装。先运行 npm ci，再运行 npm run compile，最后运行 npm run serve。只需要这段操作说明。",
+    "protected": ["npm ci", "npm run compile", "npm run serve"],
+    "facts": ["先安装依赖，再编译，最后启动", "不需要新增下载仓库或安装 Node.js 的步骤"],
+    "review": ["步骤是否可以逐项执行", "有没有向熟练读者解释依赖、编译等已知概念", "是否新增无依据的前置条件"]
+  },
+  {
+    "id": "handover-long", "split": "dev", "register": "document", "kind": "description", "mode": "plain", "audience": "接班运维工程师", "structure": "free",
+    "prompt": "把下面的值班记录整理成交接说明，读者是明早接班的运维工程师：\n今晚的导出任务有两件事需要交接。20:40 开始，北区导出队列的等待时间从平时的 2 分钟增加到 11 分钟，21:05 恢复到 3 分钟；南区没有出现相同变化。值班同事在 20:52 把北区并发数从 6 调成 4，随后等待时间开始下降，但我们目前没有证据证明这是恢复的原因，也没有排除上游请求量下降的影响。21:10 检查了 40 份导出文件，其中 2 份缺少最后一页；这只是抽查结果，不能把这个比例当成全部文件的损坏率。两份文件的用户已经收到重发链接，其他用户暂时没有批量通知。临时并发设置仍然是 4，明早交班后先查看队列和缺页投诉，再决定是否恢复成 6，不要自动恢复。旧的导出文件仍保留在只读目录，文件名不能改，因为客服工单用文件名关联记录。清理脚本现已停用，但没有删除。警告：删除旧导出文件后，现有客服链接将失效，且无法恢复。负责人还没有批准清理，不要把脚本重新启用。下一位同事需要在 09:30 前把队列状态和新增投诉写到值班记录里；如有缺页投诉，先记录文件名，再交给导出服务负责人。日志里仍有原文 ExportError: page_count mismatch!，目前尚未确定这条错误是否与两份缺页文件对应。",
+    "protected": ["20:40", "21:05", "20:52", "21:10", "09:30", "ExportError: page_count mismatch!", "警告：删除旧导出文件后，现有客服链接将失效，且无法恢复。"],
+    "facts": ["等待时间 2 到 11 后恢复 3 分钟", "并发 6 改 4，恢复因果未确认", "40 份中 2 份缺页，不外推总体比例", "南区无相同变化", "两名受影响用户收到重发链接，未批量通知", "保留文件名、只读目录、停用但未删除的脚本", "没有清理批准，不自动恢复并发", "09:30 前记录状态与投诉", "错误与缺页文件的对应关系未确定"],
+    "review": ["是否保留所有可操作的交接项", "是否保留因果不确定性和抽样限制", "是否减少重复而没有新增原因", "段落和列表是否服务于查找和执行"]
+  },
+  {
+    "id": "breaking-release", "split": "reserved", "register": "document", "kind": "description", "mode": "plain", "audience": "现有 API 用户", "structure": "free",
+    "prompt": "写 riverlog 3.4 的升级说明。新版本把 GET /events 的 since 参数改成 cursor，旧参数会返回 422；已有游标仍然可用。新增 JSONL 导出，但不支持断点续传。旧客户端必须先改参数再升级服务。没有性能测量数据。",
+    "protected": ["riverlog", "3.4", "GET /events", "since", "cursor", "422", "JSONL"],
+    "facts": ["升级顺序不可倒置", "旧游标可用", "不能声称支持断点续传或性能提升"],
+    "review": ["兼容性和限制是否一眼可见", "是否添入未测量的收益"]
+  },
+  {
+    "id": "certificate-runbook", "split": "reserved", "register": "document", "kind": "procedure", "mode": "strict", "audience": "运维工程师", "structure": "steps",
+    "prompt": "按简明中文规范写证书轮换步骤。先运行 edgecert inspect 确认备用证书有效；只有有效时才运行 edgecert activate；运行后检查状态页；状态页仍报错时运行 edgecert rollback。不要绕过有效期检查。",
+    "protected": ["edgecert inspect", "edgecert activate", "edgecert rollback"],
+    "facts": ["有效性条件在激活之前", "回滚以状态页仍报错为条件"],
+    "review": ["一个步骤是否只有一个动作", "步骤是否满足 30 字上限", "是否保留全部条件"]
+  },
+  {
+    "id": "upload-error-message", "split": "reserved", "register": "document", "kind": "description", "mode": "plain", "audience": "应用用户", "structure": "prose",
+    "prompt": "为上传页面写一条错误说明。用户选了 26 MB 的文件，单个文件上限是 20 MB。不要暗示已经上传了一部分，也不要建议关闭检查。界面已经有“重新选择文件”按钮。",
+    "protected": ["26 MB", "20 MB"],
+    "facts": ["超过单文件上限", "不能声称部分上传成功"],
+    "review": ["是否直说原因并给可用下一步", "是否避免重复按钮说明和实现细节"]
+  },
+  {
+    "id": "event-architecture", "split": "reserved", "register": "document", "kind": "description", "mode": "plain", "audience": "维护团队新成员", "structure": "free",
+    "prompt": "介绍 alertdock 的消息处理架构。网关接收事件后先写入持久队列，worker 从队列取事件并调用短信供应商；供应商返回成功后才确认队列消息。超时会重试，所以用户可能收到重复短信。系统没有保证恰好一次投递。不要添加不存在的去重服务。",
+    "protected": ["alertdock", "worker"],
+    "facts": ["先持久化再处理", "供应商成功后确认", "超时重试可能重复", "不保证恰好一次"],
+    "review": ["顺序和语义是否准确", "是否把可能重复写成已经解决", "新成员所需解释是否适量"]
+  },
+  {
+    "id": "migration-warning", "split": "reserved", "register": "document", "kind": "procedure", "mode": "plain", "audience": "数据库管理员", "structure": "steps",
+    "prompt": "写维护窗口操作说明：先确认只读副本追平主库，再停止写入，最后运行 ledger migrate --offline。追平失败时应停止本次迁移。原警告必须保持：警告：此迁移不能自动回滚，必须保留迁移前的快照。用户尚未批准执行，这次只写文档。",
+    "protected": ["ledger migrate --offline", "警告：此迁移不能自动回滚，必须保留迁移前的快照。"],
+    "facts": ["追平失败则停止", "操作顺序准确", "只写文档而不执行"],
+    "review": ["是否保留警告和执行前提", "是否误把写文档当执行授权"]
+  },
+  {
+    "id": "already-clear", "split": "reserved", "register": "document", "kind": "description", "mode": "plain", "audience": "熟悉项目的工程师", "structure": "prose",
+    "prompt": "帮我编辑这条内部更新，收件人都熟悉这个项目：搜索服务已恢复。昨天失败的任务不会自动重试。需要重试时，在管理页选择任务并点击“重新运行”。",
+    "protected": ["重新运行"],
+    "facts": ["服务恢复", "昨天失败任务不自动重试", "管理页手动操作"],
+    "review": ["是否保留已清楚的表达", "是否为显示改动而扩写术语和背景"]
+  }
+]
