@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from run_bench import copilot_command, digest, encoded, extract_response, load, positive, utc, write_once
+from run_bench import cli_command, cli_version, digest, encoded, extract_response, load, positive, save_usage, utc, write_once
 
 
 INSTRUCTION = """你是匿名文本评审者。只按给定任务和评审要求比较 A、B，不猜版本或模型，不调用工具。
@@ -20,7 +20,11 @@ reason 必须引用两份回答中的具体内容并说明取舍。不要因为�
 
 def parse_judgment(text):
     fenced = re.fullmatch(r"\s*```(?:json)?\s*\n(.*?)\n```\s*", text, re.S)
-    value = json.loads(fenced.group(1) if fenced else text)
+    body = fenced.group(1) if fenced else text
+    if not body.lstrip().startswith("{") and '{"winner"' in body:
+        # Opus sometimes prints a reasoning line before the object; parse only the final object.
+        body = body[body.rindex('{"winner"'):]
+    value = json.loads(body)
     if not isinstance(value, dict) or value.get("winner") not in ("A", "B", "tie", "abstain"):
         raise ValueError("Invalid judgment winner.")
     if type(value.get("a_facts_ok")) is not bool or type(value.get("b_facts_ok")) is not bool:
@@ -53,9 +57,8 @@ def prepare(args):
                "a_sha256": digest(a.encode()), "b_sha256": digest(b.encode())}
         write_once(out / "inputs" / f"{folder.name}.txt", prompt.encode())
         jobs.append(job)
-    cli = subprocess.run(["copilot", "--no-auto-update", "--version"], capture_output=True, text=True, check=True)
-    manifest = {"created_at": utc(), "model": args.model, "effort": args.effort, "context": "default",
-                "cli_version": cli.stdout.strip(), "card_count": len(jobs), "jobs": jobs,
+    manifest = {"created_at": utc(), "backend": args.backend, "model": args.model, "effort": args.effort,
+                "context": "default", "cli_version": cli_version(args.backend), "card_count": len(jobs), "jobs": jobs,
                 "source_cards": str(args.cards.resolve()),
                 "protocol": "Anonymous A/B, fresh no-tools CLI per card; labels, key and prior scores not sent."}
     data = encoded(manifest)
@@ -113,7 +116,8 @@ def run(args):
             raise ValueError("Prior incomplete attempt; preserve evidence rather than silently retry.")
         prompt = (out / "inputs" / f"{job['id']}.txt").read_text(encoding="utf-8")
         usage = out / "usage" / f"{job['id']}.json"
-        command = copilot_command(prompt, manifest["model"], manifest["effort"], manifest["context"], usage)
+        backend = manifest.get("backend", "copilot")
+        command = cli_command(backend, prompt, manifest["model"], manifest["effort"], manifest["context"], usage)
         write_once(attempt, encoded({"started_at": utc(), "command": command}))
         print(f"Judging {job['id']} with {manifest['model']}", flush=True)
         with tempfile.TemporaryDirectory(prefix="simple-chinese-judge-") as cwd:
@@ -123,6 +127,7 @@ def run(args):
         if proc.returncode:
             raise ValueError(f"Judge CLI failed ({proc.returncode}); inspect saved stderr.")
         text = extract_response(proc.stdout, manifest["model"])
+        save_usage(backend, proc.stdout, usage)
         write_once(destination, encoded({
             **job, "model": manifest["model"], "effort": manifest["effort"], "completed_at": utc(),
             "text": text, "text_sha256": digest(text.encode()), "stdout_sha256": digest(proc.stdout.encode()),
@@ -186,6 +191,7 @@ def main():
     sub = parser.add_subparsers(dest="action", required=True)
     prep = sub.add_parser("prepare")
     prep.add_argument("--cards", type=Path, required=True)
+    prep.add_argument("--backend", choices=("copilot", "claude"), default="copilot")
     prep.add_argument("--model", required=True)
     prep.add_argument("--effort", choices=("low", "medium", "high"), default="low")
     for name in ("run", "export", "recover"):
