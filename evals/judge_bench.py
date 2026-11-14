@@ -102,15 +102,33 @@ def verified(out, manifest, job):
     return parse_judgment(record["text"])
 
 
+def shelve_if_no_json(out, job_id, text):
+    """A reply with no JSON object has no score to pick from, so one retry is allowed; a second failure stops."""
+    if "{" in text or (out / "failed" / f"raw-{job_id}.json").exists():
+        return False
+    (out / "failed").mkdir(exist_ok=True)
+    for folder in ("attempts", "stdout", "stderr", "usage", "raw"):
+        for path in (out / folder).glob(f"{job_id}.*"):
+            path.rename(out / "failed" / f"{folder}-{path.name}")
+    print(f"No JSON object from {job_id}; evidence moved to failed/, retrying once.", flush=True)
+    return True
+
+
 def run(args):
     out = args.out.resolve()
     manifest = manifest_at(out)
     done = 0
-    for job in manifest["jobs"]:
+    queue = list(manifest["jobs"])
+    while queue:
+        job = queue.pop(0)
         destination = out / "raw" / f"{job['id']}.json"
         if destination.exists():
-            verified(out, manifest, job)
-            continue
+            try:
+                verified(out, manifest, job)
+                continue
+            except json.JSONDecodeError:
+                if not shelve_if_no_json(out, job["id"], load(destination)["text"]):
+                    raise
         attempt = out / "attempts" / f"{job['id']}.json"
         if attempt.exists():
             raise ValueError("Prior incomplete attempt; preserve evidence rather than silently retry.")
@@ -133,7 +151,13 @@ def run(args):
             "text": text, "text_sha256": digest(text.encode()), "stdout_sha256": digest(proc.stdout.encode()),
             "usage": load(usage) if usage.exists() else None,
         }))
-        verified(out, manifest, job)
+        try:
+            verified(out, manifest, job)
+        except json.JSONDecodeError:
+            if not shelve_if_no_json(out, job["id"], text):
+                raise
+            queue.insert(0, job)
+            continue
         done += 1
         if args.limit is not None and done >= args.limit:
             break

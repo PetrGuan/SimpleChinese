@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "evals"))
 from run_bench import compute, digest, encoded, extract_response, manifest_at
-from judge_bench import parse_judgment
+from judge_bench import parse_judgment, shelve_if_no_json
 from zh_lint import count_units, measure
 
 
@@ -126,6 +126,18 @@ class JudgmentTests(unittest.TestCase):
         text = '{"winner":"A","a_facts_ok":false,"b_facts_ok":true,"reason":"A 更短但漏了条件。"}'
         with self.assertRaises(ValueError):
             parse_judgment(text)
+
+    def test_no_json_reply_is_shelved_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for folder in ("attempts", "raw"):
+                (root / folder).mkdir()
+                (root / folder / "pair-001.json").write_text("{}")
+            self.assertFalse(shelve_if_no_json(root, "pair-001", '先推理 {"winner"'))
+            self.assertTrue(shelve_if_no_json(root, "pair-001", "只有推理"))
+            self.assertTrue((root / "failed/raw-pair-001.json").exists())
+            self.assertFalse((root / "raw/pair-001.json").exists())
+            self.assertFalse(shelve_if_no_json(root, "pair-001", "又只有推理"))
 
     def test_abstention_is_explicit(self):
         text = '{"winner":"abstain","a_facts_ok":false,"b_facts_ok":false,"reason":"现有材料不足以判断。"}'
