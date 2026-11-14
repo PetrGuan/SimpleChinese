@@ -54,5 +54,19 @@
     "protected": ["64"],
     "facts": ["两个词在这里都有具体技术含义", "不能机械替换或删除"],
     "review": ["是否区分术语和空泛黑话", "是否避免向已知读者补无关定义"]
+  },
+  {
+    "id": "disk-alert-frontend", "split": "dev2", "register": "reply", "kind": "description", "mode": "plain", "audience": "被拉进值班的前端工程师", "structure": "prose",
+    "prompt": "我是前端，今晚被拉进值班。告警说 /var 分区用了 92%，我没有 root 权限，只能看监控面板。我现在该做什么？",
+    "protected": ["/var", "92%"],
+    "facts": ["没有 root 权限，不能清理文件", "可以在面板上看增长速度判断紧急程度", "应升级给有权限的人"],
+    "review": ["是否给出无权限者能做的动作", "是否建议越权或危险操作", "升级条件是否清楚"]
+  },
+  {
+    "id": "flaky-test", "split": "dev2", "register": "reply", "kind": "description", "mode": "plain", "audience": "普通开发者", "structure": "prose",
+    "prompt": "CI 里有个测试十次大约失败两次，本地跑不出来。同事说加个自动重试就行。你怎么看？我现在只能看 CI 日志。",
+    "protected": [],
+    "facts": ["重试会掩盖问题，但可作临时措施", "原因未知，不能断定", "可以从 CI 日志找失败模式"],
+    "review": ["是否直接表态", "是否把未知原因说成确定", "下一步是否在只有 CI 日志的条件下可执行"]
   }
 ]

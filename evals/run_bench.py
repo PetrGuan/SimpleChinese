@@ -16,6 +16,8 @@ from zh_lint import measure
 ROOT = Path(__file__).resolve().parents[1]
 HERE = ROOT / "evals"
 CONDITIONS = ("baseline", "old", "new", "short")
+# Identical for every condition; replaces Claude Code's own agent prompt so it cannot steer the style.
+CLAUDE_SYSTEM = "You are a helpful assistant."
 
 
 def digest(data):
@@ -55,7 +57,7 @@ def prepare(args):
     blocks = re.findall(r"```text\n(.*?)\n```", prompt_text, re.S)
     if len(blocks) != 2:
         raise ValueError("Expected short and full standalone prompt blocks.")
-    prompts = {"baseline": "", "old": (HERE / "fixtures/v0.1/system-prompt.txt").read_text(encoding="utf-8"),
+    prompts = {"baseline": "", "old": (HERE / "fixtures" / args.old / "system-prompt.txt").read_text(encoding="utf-8"),
                "new": blocks[1], "short": blocks[0]}
     out.mkdir(parents=True)
     for folder in ("prompts", "inputs", "raw", "attempts", "stdout", "stderr", "usage"):
@@ -75,14 +77,14 @@ def prepare(args):
                 jobs.append({"id": run_id, "scenario": case["id"], "condition": condition,
                              "repetition": repetition, "input_sha256": digest(prompt.encode())})
     random.Random(args.seed).shuffle(jobs)
-    cli = subprocess.run(["copilot", "--no-auto-update", "--version"], capture_output=True, text=True, check=True)
+    cli = cli_version(args.backend)
     version = re.search(r'^  version: "([^"]+)"', (ROOT / "skills/simple-chinese/SKILL.md").read_text(), re.M)
     manifest = {
-        "protocol": 2, "created_at": utc(), "model": args.model, "effort": args.effort,
-        "context": "default", "cli_version": cli.stdout.strip(),
+        "protocol": 2, "created_at": utc(), "backend": args.backend, "model": args.model,
+        "effort": args.effort, "context": "default", "cli_version": cli,
         "split": args.split, "repetitions": args.repeats, "seed": args.seed,
         "conditions": list(CONDITIONS), "cases": cases, "jobs": jobs,
-        "prompt_versions": {"old": "0.1", "new": version.group(1) if version else "unrecorded"},
+        "prompt_versions": {"old": args.old.lstrip("v"), "new": version.group(1) if version else "unrecorded"},
         "prompt_sha256": {key: digest(text.encode()) for key, text in prompts.items()},
         "limitations": [
             "Independent CLI sessions with custom instructions and tools disabled, not a bare model API.",
@@ -120,6 +122,8 @@ def extract_response(stdout, model=None):
     events = [json.loads(line) for line in stdout.splitlines() if line.strip()]
     if not events:
         raise ValueError("Empty CLI stream.")
+    if len(events) == 1 and isinstance(events[0], dict) and "modelUsage" in events[0]:
+        return claude_response(events[0], model)
     # Refuse tool execution rather than pretending that the run was isolated.
     for event in events:
         if not isinstance(event, dict) or not isinstance(event.get("data", {}), dict):
@@ -178,6 +182,44 @@ def verify_result(out, job, manifest):
     return record
 
 
+def claude_response(event, model):
+    if event.get("type") != "result" or event.get("is_error") or event.get("subtype") != "success":
+        raise ValueError("CLI reported an error; not a model answer.")
+    # num_turns can be 2 when the CLI auto-continues a cut-off answer; tools leave these traces instead.
+    server_tools = event.get("usage", {}).get("server_tool_use", {})
+    if event.get("permission_denials") or any(server_tools.values()):
+        raise ValueError("Tool call detected in a no-tools run.")
+    if model and list(event["modelUsage"]) != [model]:
+        raise ValueError("Actual model differs from the requested model.")
+    if not isinstance(event.get("result"), str) or not event["result"].strip():
+        raise ValueError("No supported final response in CLI JSON; keep raw stream for inspection.")
+    return event["result"]
+
+
+def cli_version(backend):
+    binary = {"copilot": ["copilot", "--no-auto-update"], "claude": ["claude"]}[backend]
+    return subprocess.run(binary + ["--version"], capture_output=True, text=True, check=True).stdout.strip()
+
+
+def cli_command(backend, prompt, model, effort, context, usage):
+    if backend == "copilot":
+        return copilot_command(prompt, model, effort, context, usage)
+    # Empty setting sources skip user plugins, hooks, CLAUDE.md and skills; no tools, no MCP.
+    return [
+        "claude", "-p", prompt, "--model", model, "--effort", effort,
+        "--system-prompt", CLAUDE_SYSTEM, "--tools", "", "--strict-mcp-config",
+        "--setting-sources", "", "--no-session-persistence", "--output-format", "json",
+    ]
+
+
+def save_usage(backend, stdout, usage):
+    """Claude reports usage inside its result JSON; copy it so verification treats both backends alike."""
+    if backend == "claude":
+        event = json.loads(stdout)
+        write_once(usage, encoded({"currentModel": next(iter(event["modelUsage"])),
+                                   "modelUsage": event["modelUsage"], "total_cost_usd": event.get("total_cost_usd")}))
+
+
 def copilot_command(prompt, model, effort, context, usage):
     return [
         "copilot", "-p", prompt, "--model", model,
@@ -203,7 +245,8 @@ def run(args):
             raise ValueError(f"Prior incomplete attempt: {job['id']}. Preserve it; start a new matrix rather than overwrite.")
         usage = out / "usage" / f"{job['id']}.json"
         prompt = (out / "inputs" / f"{job['id']}.txt").read_text(encoding="utf-8")
-        command = copilot_command(prompt, manifest["model"], manifest["effort"], manifest["context"], usage)
+        backend = manifest.get("backend", "copilot")
+        command = cli_command(backend, prompt, manifest["model"], manifest["effort"], manifest["context"], usage)
         write_once(attempt, encoded({"started_at": utc(), "command": command}))
         print(f"Generating {job['id']}", flush=True)
         with tempfile.TemporaryDirectory(prefix="simple-chinese-bench-") as cwd:
@@ -213,6 +256,7 @@ def run(args):
         if proc.returncode:
             raise ValueError(f"CLI failed ({proc.returncode}); see stderr/{job['id']}.txt")
         text = extract_response(proc.stdout, manifest["model"])
+        save_usage(backend, proc.stdout, usage)
         record = {
             **job, "model": manifest["model"], "effort": manifest["effort"],
             "completed_at": utc(), "text": text, "text_sha256": digest(text.encode()),
@@ -290,11 +334,13 @@ def main():
     sub = parser.add_subparsers(dest="action", required=True)
     prep = sub.add_parser("prepare")
     prep.add_argument("--out", type=Path, required=True)
+    prep.add_argument("--backend", choices=("copilot", "claude"), default="copilot")
     prep.add_argument("--model", required=True)
     prep.add_argument("--effort", choices=("low", "medium", "high"), required=True)
-    prep.add_argument("--split", choices=("dev", "reserved"), default="dev")
+    prep.add_argument("--split", choices=("dev", "dev2", "reserved"), default="dev")
     prep.add_argument("--repeats", type=positive, default=2)
     prep.add_argument("--seed", type=int, default=1729)
+    prep.add_argument("--old", choices=("v0.1", "v0.1.2"), default="v0.1", help="Frozen prompt for the old condition.")
     execute = sub.add_parser("run")
     execute.add_argument("--out", type=Path, required=True)
     execute.add_argument("--limit", type=positive)

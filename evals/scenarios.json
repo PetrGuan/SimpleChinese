@@ -54,5 +54,26 @@
     "protected": ["重新运行"],
     "facts": ["服务恢复", "昨天失败任务不自动重试", "管理页手动操作"],
     "review": ["是否保留已清楚的表达", "是否为显示改动而扩写术语和背景"]
+  },
+  {
+    "id": "restore-drill", "split": "dev2", "register": "document", "kind": "procedure", "mode": "plain", "audience": "第一次做恢复演练的后端工程师", "structure": "steps",
+    "prompt": "给第一次做数据库恢复演练的后端工程师写操作步骤。先运行 pgsnap list 找到最近的快照；再运行 pgsnap restore --target staging 把它恢复到预发环境；恢复后运行 pgsnap verify。校验失败时不要切换预发流量，联系 DBA 值班。只在预发环境操作，不碰生产库。",
+    "protected": ["pgsnap list", "pgsnap restore --target staging", "pgsnap verify"],
+    "facts": ["顺序为 list、restore、verify", "校验失败时不切流量并联系 DBA 值班", "只在预发环境操作"],
+    "review": ["判断点两侧是否都写清", "是否编造校验失败后的修复办法", "新手需要的限制是否放在相关步骤前"]
+  },
+  {
+    "id": "rate-limit-doc", "split": "dev2", "register": "document", "kind": "description", "mode": "plain", "audience": "接入 API 的第三方开发者", "structure": "prose",
+    "prompt": "为开放 API 文档写一段 429 错误说明，读者是第三方开发者。每个 API 密钥每分钟最多 600 次请求。响应头 Retry-After 给出需要等待的秒数。被拒绝的请求不计费。目前不开放提额申请，不要建议申请提额。",
+    "protected": ["429", "600", "Retry-After"],
+    "facts": ["限额按密钥每分钟 600 次", "按 Retry-After 等待后重试", "被拒请求不计费", "不提提额申请"],
+    "review": ["开发者能否据此写重试逻辑", "是否添加不存在的限额规则", "是否违反不建议提额的限制"]
+  },
+  {
+    "id": "flag-rollout-doc", "split": "dev2", "register": "document", "kind": "description", "mode": "plain", "audience": "产品经理", "structure": "prose",
+    "prompt": "给产品经理写 orderflow 功能开关的说明。开关 new_checkout 在后台按百分比放量，修改后 5 分钟内生效。关闭开关后，已经下的订单不受影响。系统不能按用户分组放量，只能按百分比随机。",
+    "protected": ["new_checkout", "5"],
+    "facts": ["按百分比随机放量", "修改 5 分钟内生效", "关闭不影响已下订单", "不能按用户分组"],
+    "review": ["产品经理能否据此做放量决定", "是否解释了必要限制", "是否堆砌实现细节"]
   }
 ]

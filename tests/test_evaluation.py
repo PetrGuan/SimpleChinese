@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "evals"))
 from run_bench import compute, digest, encoded, extract_response, manifest_at
-from judge_bench import parse_judgment
+from judge_bench import parse_judgment, shelve_if_no_json
 from zh_lint import count_units, measure
 
 
@@ -67,6 +67,20 @@ class CliEnvelopeTests(unittest.TestCase):
             extract_response(answer + "\n" + answer + terminal, "grok-4.7")
 
 
+    def test_claude_result_envelope(self):
+        def stream(**changes):
+            event = {"type": "result", "subtype": "success", "is_error": False, "num_turns": 1,
+                     "permission_denials": [], "result": "答案", "modelUsage": {"claude-sonnet-5-5": {}}}
+            return json.dumps({**event, **changes})
+        self.assertEqual(extract_response(stream(), "claude-sonnet-5-5"), "答案")
+        self.assertEqual(extract_response(stream(num_turns=2), "claude-sonnet-5-5"), "答案")
+        for bad in (stream(is_error=True, result="Not logged in"), stream(permission_denials=[{"tool_name": "Bash"}]),
+                    stream(usage={"server_tool_use": {"web_search_requests": 1}}),
+                    stream(modelUsage={"claude-haiku-5-5": {}}), stream(result=" ")):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                extract_response(bad, "claude-sonnet-5-5")
+
+
 class MatrixIntegrityTests(unittest.TestCase):
     def fixture(self, root, duplicate=False):
         (root / "prompts").mkdir()
@@ -102,10 +116,28 @@ class JudgmentTests(unittest.TestCase):
         text = '{"winner":"tie","a_facts_ok":true,"b_facts_ok":true,"reason":"两者都保留了条件。"}'
         self.assertEqual(parse_judgment(text), parse_judgment("```json\n" + text + "\n```"))
 
+    def test_leading_reasoning_before_object(self):
+        text = '{"winner":"B","a_facts_ok":true,"b_facts_ok":true,"reason":"B 待办集中。"}'
+        self.assertEqual(parse_judgment("A misses nothing. B wins." + text), parse_judgment(text))
+        with self.assertRaises(ValueError):
+            parse_judgment("no object here")
+
     def test_incomplete_facts_cannot_win(self):
         text = '{"winner":"A","a_facts_ok":false,"b_facts_ok":true,"reason":"A 更短但漏了条件。"}'
         with self.assertRaises(ValueError):
             parse_judgment(text)
+
+    def test_no_json_reply_is_shelved_once(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for folder in ("attempts", "raw"):
+                (root / folder).mkdir()
+                (root / folder / "pair-001.json").write_text("{}")
+            self.assertFalse(shelve_if_no_json(root, "pair-001", '先推理 {"winner"'))
+            self.assertTrue(shelve_if_no_json(root, "pair-001", "只有推理"))
+            self.assertTrue((root / "failed/raw-pair-001.json").exists())
+            self.assertFalse((root / "raw/pair-001.json").exists())
+            self.assertFalse(shelve_if_no_json(root, "pair-001", "又只有推理"))
 
     def test_abstention_is_explicit(self):
         text = '{"winner":"abstain","a_facts_ok":false,"b_facts_ok":false,"reason":"现有材料不足以判断。"}'

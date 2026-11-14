@@ -40,6 +40,9 @@ python3 evals/run_bench.py report --out evals/results/my-dev-run
 python3 evals/check_numbers.py --out evals/results/my-dev-run
 ```
 
+没有 Copilot CLI 时，可在 `prepare` 加 `--backend claude` 并用完整模型 ID，例如 `--model claude-sonnet-5-5`；`judge_bench.py prepare` 同样支持该参数。
+Claude 后端每次运行独立的 `claude -p`：空临时目录，`--setting-sources ""`，无工具、无 MCP，固定系统提示。`prepare --old v0.1.2` 把 old 条件换成冻结的 v0.1.2 提示。
+
 上面是 3 × 4 × 2 = 24 次生成。`run --limit 1` 可先运行矩阵中的第一个单元；再次运行会核验并跳过已完成单元。
 已有输出目录不能用于 `prepare`，已有未完成请求不能自动覆盖。发生失败时先诊断原始记录，再决定是否批准新矩阵。
 不要把部分成功结果当完整实验汇总。仅在得到额外授权后运行 `--split reserved`，该参数会增加调用量。
